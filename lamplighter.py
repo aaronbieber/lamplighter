@@ -53,13 +53,23 @@ def search():
                 time.sleep(10)
 
                 log("*** Performing 3 confirmation searches...")
-                if all(count_phones_present() is 0 for x in range(3)):
+                tests = []
+                for x in range(3):
+                    test = count_phones_present()
+                    log("*** Found %s phone(s)." % test)
+
+                    if test is not 0:
+                        log("*** False alarm. State unchanged.")
+                        break
+
+                    tests += [ test ]
+                    time.sleep(5)
+
+                if len(tests) is 3 and all(test is 0 for test in tests):
                     log("Confirmed. Changing state to away.")
                     save_state("away")
                     lights_off()
                     send_message("Lights are now off. Have a good day.")
-                else:
-                    log("False alarm. State unchanged.")
             else:
                 log("No change in state.")
         elif state == "away":
