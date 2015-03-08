@@ -18,7 +18,9 @@ import signal
 
 def main():
     create_pidfile()
+    send_message('Lamplighter online.')
     signal.signal(signal.SIGTERM, handle_term)
+    signal.signal(signal.SIGPOLL, handle_poll)
 
     while True:
         search()
@@ -79,7 +81,7 @@ def log(message):
 def state_file_path():
     """Return the path to the state file."""
     return  "/tmp/welcome_home_state"
-    
+
 def save_state(state):
     """Save the given state to disk."""
     statefile_name = state_file_path()
@@ -101,6 +103,9 @@ def current_state():
 def get_pidfile_name():
     """Return the name of our pid file."""
     return str("/var/run/lamplighter.pid")
+
+def handle_poll(signum, frame):
+    send_message("Lamplighter reporting for duty.")
 
 def handle_term(signum, frame):
     """Clean up and exit."""
@@ -133,7 +138,7 @@ def count_phones_present():
         if phone_search.find("FC:C2:DE:58:99:AD") > -1:
             log("Found Veronica's phone.")
             count += 1
-        
+
         return count
     except subprocess.CalledProcessError:
         # Grep returns a non-zero exit status when nothing is found.
@@ -150,16 +155,22 @@ def lights_off():
 
 def send_message(message):
     """Send a text message to my phone through Twilio."""
-    log("Twilio says: " + subprocess.check_output(
-        'curl -s -XPOST https://api.twilio.com/2010-04-01/Accounts/' + \
-        'ACed9a2d1111e08e78258af59b55f43c87/Messages.json ' + \
-        '-d "Body=' + urllib.quote_plus(message) + '" ' + \
-        '-d "To=%2B18608055785" ' + \
-        '-d "From=%2B18607852006" ' + \
-        '-u "ACed9a2d1111e08e78258af59b55f43c87:78d2c8e770e55d9a56cdad00e1585e82"',
-        stderr=subprocess.STDOUT,
-        shell=True
-    ))
+    TWILIO_KEY="ACed9a2d1111e08e78258af59b55f43c87"
+    url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % TWILIO_KEY
+    payload = {
+        'Body': message,
+        'To': '+18608055785',
+        'From': '+18607852006',
+    }
+    creds = ('ACed9a2d1111e08e78258af59b55f43c87', '78d2c8e770e55d9a56cdad00e1585e82')
+
+    response = requests.post(url, data=payload, auth=creds)
+    rsdata = response.json()
+
+    log("Message %s to %s '%s' at %s." % (rsdata['sid'],
+                                          rsdata['to'],
+                                          rsdata['status'],
+                                          rsdata['date_created']))
 
 if __name__ == "__main__":
     main()
