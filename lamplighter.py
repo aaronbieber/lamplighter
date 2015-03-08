@@ -17,6 +17,7 @@ import urllib
 import signal
 
 def main():
+    create_pidfile()
     signal.signal(signal.SIGTERM, handle_term)
 
     while True:
@@ -105,7 +106,7 @@ def handle_term(signum, frame):
     """Clean up and exit."""
     log("Received SIGTERM; cleaning up and exiting.")
     os.unlink(get_pidfile_name())
-    sys.exit()
+    sys.exit(0)
 
 def create_pidfile():
     """Create a pidfile for this process."""
