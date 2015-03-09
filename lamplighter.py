@@ -56,6 +56,22 @@ def search():
         log("Finding initial phone count...")
         phone_count = count_phones_present()
         
+    # Either due to wireless network blips or general unreliability of
+    # a single network scan, these scans are guaranteed to be correct
+    # about finding any given device, but also very likely to be
+    # incorrect about *not finding* devices. What this means is that a
+    # transition from "away" to "home" can be done with confidence; if
+    # any device is seen on the network, we can be certain that it is
+    # real. However, transitions from "home" to "away" must be done
+    # more cautiously, lest you have all of the lights in your house
+    # turn off and back on repeatedly while you're there (which
+    # happened to me, a lot).
+    #
+    # This seems to be a fairly good compromise between accuracy and
+    # complexity: if it looks like no devices were found, wait ten
+    # seconds and then scan for them three more times, waiting for
+    # five seconds between each scan. If all three of those scans find
+    # nothing, we'll commit to the state change.
     if state == "home" and phone_count is 0:
         # Delay ten seconds and then check three more times.
         log("*** Possible change to away; wait 10 sec. and search 3 more times...")
