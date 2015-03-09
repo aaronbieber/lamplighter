@@ -15,72 +15,79 @@ import subprocess
 import requests
 import urllib
 import signal
+from ConfigParser import SafeConfigParser
+
+import config
 
 def main():
     create_pidfile()
-    send_message('Lamplighter online.')
+    config.load()
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGPOLL, handle_poll)
+
+    send_message('Lamplighter online.')
 
     while True:
         search()
         time.sleep(1)
-
+        
 def search():
     """The main thread."""
+    
+    log("--- Commencing search. ---")
 
     state = current_state()
+    if state == False:
+        log("No current state. Initializing.")
+
+        if phone_count is 0:
+            log("Current state: away.")
+            state = "away"
+        else:
+            log("Current state: home.")
+            state = "home"
+
+        save_state(state)
+        
+    log("Current state is %s." % state)
 
     phone_count = False
     while phone_count is False:
         log("Finding initial phone count...")
         phone_count = count_phones_present()
+        
+    if state == "home" and phone_count is 0:
+        # Delay ten seconds and then check three more times.
+        log("*** Possible change to away; wait 10 sec. and search 3 more times...")
+        time.sleep(10)
 
-    if state == False:
-        log("No current state. Initializing.")
-        if phone_count is 0:
-            log("Current state: away.")
+        log("*** Performing 3 confirmation searches...")
+        tests = []
+        for x in range(3):
+            test = count_phones_present()
+            log("*** Found %s phone(s)." % test)
+
+            if test is not 0:
+                log("*** False alarm. State unchanged.")
+                break
+
+            tests += [ test ]
+            time.sleep(5)
+
+        if len(tests) is 3 and all(test is 0 for test in tests):
+            log("Confirmed. Changing state to away.")
             save_state("away")
-        else:
-            log("Current state: home.")
-            save_state("home")
+            lights_off()
+            send_message("Lights are now off. Have a good day.")
+
+    elif state == "away" and phone_count > 0:
+        log("*** State changing to home.")
+        save_state("home")
+        lights_on()
+        send_message("Lights are now on. Welcome home.")
+        
     else:
-        if state == "home":
-            log("Current state is home.")
-            if phone_count is 0:
-                # Delay ten seconds and then check three more times.
-                log("*** Possible change to away; wait 10 sec. and search 3 more times...")
-                time.sleep(10)
-
-                log("*** Performing 3 confirmation searches...")
-                tests = []
-                for x in range(3):
-                    test = count_phones_present()
-                    log("*** Found %s phone(s)." % test)
-
-                    if test is not 0:
-                        log("*** False alarm. State unchanged.")
-                        break
-
-                    tests += [ test ]
-                    time.sleep(5)
-
-                if len(tests) is 3 and all(test is 0 for test in tests):
-                    log("Confirmed. Changing state to away.")
-                    save_state("away")
-                    lights_off()
-                    send_message("Lights are now off. Have a good day.")
-            else:
-                log("No change in state.")
-        elif state == "away":
-            log("Current state is away.")
-            if phone_count > 0:
-                log("*** State changing to home.")
-                save_state("home")
-                lights_on()
-                send_message("Lights are now on. Welcome home.")
-            else:
-                log("No change in state. Exiting.")
+        log("State is '%s', phone count is %s; nothing to do." % (state, phone_count))
 
 def log(message):
     """Output a pretty log message."""
@@ -165,14 +172,13 @@ def lights_off():
 
 def send_message(message):
     """Send a text message to my phone through Twilio."""
-    TWILIO_KEY="ACed9a2d1111e08e78258af59b55f43c87"
-    url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % TWILIO_KEY
+    url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % config.config['twilio_account_id']
     payload = {
         'Body': message,
-        'To': '+18608055785',
-        'From': '+18607852006',
+        'To':   config.config['twilio_notification_numbers'],
+        'From': config.config['twilio_outgoing_number'],
     }
-    creds = ('ACed9a2d1111e08e78258af59b55f43c87', '78d2c8e770e55d9a56cdad00e1585e82')
+    creds = (config.config['twilio_account_id'], config.config['twilio_auth_token'])
 
     response = requests.post(url, data=payload, auth=creds)
     rsdata = response.json()
