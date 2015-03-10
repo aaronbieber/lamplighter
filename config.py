@@ -14,9 +14,5 @@ def load():
         parser = SafeConfigParser()
         parser.read('config.ini')
 
-        for key in ['twilio_account_id',
-                    'twilio_auth_token',
-                    'twilio_outgoing_number',
-                    'twilio_notification_numbers']:
-
+        for key in parser.options('lamplighter'):
             config[key] = parser.get('lamplighter', key)
