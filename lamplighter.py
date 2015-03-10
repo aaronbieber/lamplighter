@@ -24,7 +24,7 @@ def main():
     config.load()
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGPOLL, handle_poll)
-
+    
     send_message('Lamplighter online.')
 
     while True:
@@ -77,33 +77,65 @@ def search():
         log("*** Possible change to away; wait 10 sec. and search 3 more times...")
         time.sleep(10)
 
-        log("*** Performing 3 confirmation searches...")
-        tests = []
-        for x in range(3):
-            test = count_phones_present()
-            log("*** Found %s phone(s)." % test)
-
-            if test is not 0:
-                log("*** False alarm. State unchanged.")
-                break
-
-            tests += [ test ]
-            time.sleep(5)
-
-        if len(tests) is 3 and all(test is 0 for test in tests):
-            log("Confirmed. Changing state to away.")
+        if confirm_phone_count():
+            log("Phones confirmed missing. State changed to away.")
             save_state("away")
-            lights_off()
-            send_message("Lights are now off. Have a good day.")
+
+            if within_quiet_hours():
+                log("Within quiet hours! Simply notifying.")
+                send_message("It appears you've left, but it's late. You should turn off your own lights.")
+            else:
+                lights_off()
+                send_message("Lights are now off. Have a good day.")
 
     elif state == "away" and phone_count > 0:
         log("*** State changing to home.")
         save_state("home")
-        lights_on()
-        send_message("Lights are now on. Welcome home.")
+
+        if within_quiet_hours():
+            log("Within quiet hours! Simply notifying.")
+            send_message("It appers you've returned home, but it's late. You should go to sleep.")
+        else:
+            lights_on()
+            send_message("Lights are now on. Welcome home.")
         
     else:
         log("State is '%s', phone count is %s; nothing to do." % (state, phone_count))
+
+def within_quiet_hours():
+    now = datetime.datetime.now()
+    
+    # The config module does not know nor care what the values within
+    # the config file are, nor their types. We'll get strings for
+    # everything, so coerce them into ints so we can compare them.
+    start = int(config.config['quiet_hours_start'])
+    end = int(config.config['quiet_hours_end'])
+    
+    if start is 0 and end is 0:
+        return False
+
+    if start < end and \
+       start <= now.hour and end >= now.hour:
+        return True
+
+    if start > end and \
+       (start <= now.hour or end >= now.hour):
+        return True
+        
+def confirm_phone_count():
+    log("*** Performing 3 confirmation searches...")
+
+    for x in range(3):
+        test = count_phones_present()
+        log("*** Found %s phone(s)." % test)
+
+        if test is not 0:
+            log("*** False alarm, phone(s) found.")
+            return False
+
+        time.sleep(5)
+
+    return True
 
 def log(message):
     """Output a pretty log message."""
