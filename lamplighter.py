@@ -25,9 +25,6 @@ def main():
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGPOLL, handle_poll)
     
-    #if not within_quiet_hours():
-    #    send_message('Lamplighter online.')
-
     while True:
         search()
         time.sleep(1)
@@ -56,9 +53,10 @@ def search():
     log("Current state is %s." % state)
 
     phone_count = False
+    confirm_with_arp = state == "home"
     while phone_count is False:
         log("Finding initial phone count...")
-        phone_count = count_phones_present()
+        phone_count = count_phones_present(confirm_with_arp = confirm_with_arp)
         
     # Either due to wireless network blips or general unreliability of
     # a single network scan, these scans are guaranteed to be correct
@@ -191,28 +189,61 @@ def create_pidfile():
     log("Creating pidfile for %s" % pid)
     file(get_pidfile_name(), "w").write(pid)
 
-def count_phones_present():
-    """Count the known phones on the network."""
-    log("Searching for phones...")
+def count_phones_present(confirm_with_arp = False):
+    """
+    Count devices on the network. Return the count, or False on error.
+
+    The only error that causes a False return value is a non-zero exit
+    status from the external program used; if False is returned, it's
+    a good idea to call this function again.
+
+    If CONFIRM_WITH_ARP is True, do an additional arp scan when the
+    nmap scan returns a zero result, as a means of seeking additional
+    confirmation of the zero value.
+    """
+
+    count = count_phones_present_nmap()
+
+    if confirm_with_arp and count is 0:
+        count = count_phones_present_arp()
+
+    return count
+    
+def count_phones_present_arp():
+    log("Searching for devices with arp-scan.")
     try:
-        count = 0
-        phone_search = subprocess.check_output(["sudo",
+        device_search = subprocess.check_output(["sudo",
+                                                "arp-scan",
+                                                "192.168.10.0/24"])
+    except subprocess.CalledProcessError:
+        log("arp-scan returned a non-zero exit status!")
+        return False
+
+    return count_devices_in_string(device_search)
+    
+def count_phones_present_nmap():
+    log("Searching for devices with nmap.")
+    try:
+        device_search = subprocess.check_output(["sudo",
                                                 "nmap",
                                                 "-sn",
                                                 "-n",
                                                 "-T5",
                                                 "192.168.10.50-255"])
-
-        for name in config.config['devices']:
-            if phone_search.find(config.config['devices'][name]) > -1:
-                log("Found %s's device." % name.title())
-                count += 1
-
-        return count
     except subprocess.CalledProcessError:
-        # Grep returns a non-zero exit status when nothing is found.
-        log("Search returned non-zero exit status.")
+        log("nmap returned a non-zero exit status!")
         return False
+
+    return count_devices_in_string(device_search)
+
+def count_devices_in_string(search_string):
+    count = 0
+    for name in config.config['devices']:
+        if search_string.find(config.config['devices'][name]) > -1:
+            log("Found %s's device." % name.title())
+            count += 1
+
+    return count
 
 def lights_on():
     """Turn the lights on."""
