@@ -25,7 +25,8 @@ def main():
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGPOLL, handle_poll)
     
-    send_message('Lamplighter online.')
+    if not within_quiet_hours():
+        send_message('Lamplighter online.')
 
     while True:
         search()
@@ -34,7 +35,10 @@ def main():
 def search():
     """The main thread."""
     
-    log("--- Commencing search. ---")
+    quiet_hours = ""
+    if within_quiet_hours():
+        quiet_hours = " (quiet hours)"
+    log("--- Commencing search%s ---" % quiet_hours)
 
     state = current_state()
     if state == False:
@@ -83,7 +87,7 @@ def search():
 
             if within_quiet_hours():
                 log("Within quiet hours! Simply notifying.")
-                send_message("It appears you've left, but it's late. You should turn off your own lights.")
+                send_message("It appears you've left, but it's late, and I'm tired. Turn off your own lights.")
             else:
                 lights_off()
                 send_message("Lights are now off. Have a good day.")
@@ -94,7 +98,7 @@ def search():
 
         if within_quiet_hours():
             log("Within quiet hours! Simply notifying.")
-            send_message("It appers you've returned home, but it's late. You should go to sleep.")
+            send_message("It appers you've returned home, but it's late, and I have a headache. Go to bed.")
         else:
             lights_on()
             send_message("Lights are now on. Welcome home.")
@@ -114,12 +118,14 @@ def within_quiet_hours():
     if start is 0 and end is 0:
         return False
 
+    # Quiet hours is a range within the same day.
     if start < end and \
-       start <= now.hour and end >= now.hour:
+       start <= now.hour and end > now.hour:
         return True
 
+    # Quiet hours is a range spanning a day change (through midnight).
     if start > end and \
-       (start <= now.hour or end >= now.hour):
+       (start <= now.hour or end > now.hour):
         return True
         
 def confirm_phone_count():
@@ -170,7 +176,8 @@ def get_pidfile_name():
     return str("/var/run/lamplighter.pid")
 
 def handle_poll(signum, frame):
-    send_message("Lamplighter reporting for duty.")
+    log("Received SIGPOLL, reloading config file.")
+    config.load()
 
 def handle_term(signum, frame):
     """Clean up and exit."""
@@ -223,18 +230,20 @@ def send_message(message):
     url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % config.config['twilio_account_id']
     payload = {
         'Body': message,
-        'To':   config.config['twilio_notification_numbers'],
         'From': config.config['twilio_outgoing_number'],
     }
     creds = (config.config['twilio_account_id'], config.config['twilio_auth_token'])
 
-    response = requests.post(url, data=payload, auth=creds)
-    rsdata = response.json()
+    numbers = config.config['twilio_notification_numbers']
+    for number in numbers.split(","):
+        payload['To'] = number
+        response = requests.post(url, data=payload, auth=creds)
+        rsdata = response.json()
 
-    log("Message %s to %s '%s' at %s." % (rsdata['sid'],
-                                          rsdata['to'],
-                                          rsdata['status'],
-                                          rsdata['date_created']))
+        log("Message %s to %s '%s' at %s." % (rsdata['sid'],
+                                            rsdata['to'],
+                                            rsdata['status'],
+                                            rsdata['date_created']))
 
 if __name__ == "__main__":
     main()
