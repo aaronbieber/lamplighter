@@ -14,5 +14,11 @@ def load():
         parser = SafeConfigParser()
         parser.read('config.ini')
 
+        # Load the main configuration options.
         for key in parser.options('lamplighter'):
             config[key] = parser.get('lamplighter', key)
+            
+        # Populate the device search list.
+        config['devices'] = {}
+        for name in parser.options('devices'):
+            config['devices'][name] = parser.get('devices', name)

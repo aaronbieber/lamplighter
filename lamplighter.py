@@ -25,8 +25,8 @@ def main():
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGPOLL, handle_poll)
     
-    if not within_quiet_hours():
-        send_message('Lamplighter online.')
+    #if not within_quiet_hours():
+    #    send_message('Lamplighter online.')
 
     while True:
         search()
@@ -203,13 +203,10 @@ def count_phones_present():
                                                 "-T5",
                                                 "192.168.10.50-255"])
 
-        if phone_search.find("34:4D:F7:0E:C7:5B") > -1:
-            log("Found Aaron's phone.")
-            count += 1
-
-        if phone_search.find("FC:C2:DE:58:99:AD") > -1:
-            log("Found Veronica's phone.")
-            count += 1
+        for name in config.config['devices']:
+            if phone_search.find(config.config['devices'][name]) > -1:
+                log("Found %s's device." % name.title())
+                count += 1
 
         return count
     except subprocess.CalledProcessError:
