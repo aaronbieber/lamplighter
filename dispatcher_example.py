@@ -26,11 +26,10 @@ access them like this:
 Note that the config module will *always* return configuration values
 as strings, so cast them as necessary for comparisons, etc.
 
-The "quiet hours" callbacks use lambdas to modify a "quiet" switch to
-the lights functions simply as an illustration. Obviously the effect
-of both calls is a no-op, so they could just as easily have been left
-unconfigured, but this gives you an idea of how to design your
-callbacks functionally.
+Callbacks must accept a single argument, "quiet," which indicates
+whether the callback was triggered during quiet hours. If you aren't
+using quiet hours, you can simply ignore the argument. The example
+here demonstrates how quiet hours will skip changing any Hue lights.
 """
 
 import lamplighter
