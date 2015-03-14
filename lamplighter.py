@@ -33,8 +33,6 @@ import urllib
 # Default callbacks, which do nothing.
 on_home = lambda: None
 on_away = lambda: None
-on_home_quiet_hours = lambda: None
-on_away_quiet_hours = lambda: None
 
 def run():
     create_pidfile()
@@ -102,10 +100,10 @@ def search():
 
             if within_quiet_hours():
                 log("Within quiet hours! Triggering on_away_quiet_hours() callback.")
-                on_away_quiet_hours()
+                on_away(True)
             else:
                 log("Triggering on_away() callback.")
-                on_away()
+                on_away(False)
 
     elif state == "away" and device_count > 0:
         log("*** State changing to home.")
@@ -113,10 +111,10 @@ def search():
 
         if within_quiet_hours():
             log("Within quiet hours! Triggering on_home_quiet_hours() callback.")
-            on_home_quiet_hours()
+            on_home(True)
         else:
             log("Triggering on_home() callback.")
-            on_home()
+            on_home(False)
         
     else:
         log("State is '%s', device count is %s; nothing to do." % (state, device_count))

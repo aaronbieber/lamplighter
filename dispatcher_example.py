@@ -25,6 +25,12 @@ access them like this:
 
 Note that the config module will *always* return configuration values
 as strings, so cast them as necessary for comparisons, etc.
+
+The "quiet hours" callbacks use lambdas to modify a "quiet" switch to
+the lights functions simply as an illustration. Obviously the effect
+of both calls is a no-op, so they could just as easily have been left
+unconfigured, but this gives you an idea of how to design your
+callbacks functionally.
 """
 
 import lamplighter
@@ -37,13 +43,15 @@ def set_light_state(on = True):
     }
     r = requests.put("http://hue_ip/username/lights/1/state", params=payload)
 
-def lights_on():
+def lights_on(quiet = False):
     """Turn the lights on."""
-    set_light_state(True)
+    if not quiet:
+        set_light_state(on = True)
 
-def lights_off():
+def lights_off(quiet = False):
     """Turn the lights off."""
-    set_light_state(False)
+    if not quiet:
+        set_light_state(on = False)
 
 def main():
     # Set callbacks and run!
