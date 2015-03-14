@@ -215,8 +215,8 @@ def count_devices_present_arp():
     log("Searching for devices with arp-scan.")
     try:
         device_search = subprocess.check_output(["sudo",
-                                                "arp-scan",
-                                                "192.168.10.0/24"])
+                                                 "arp-scan",
+                                                 "192.168.10.0/24"])
     except subprocess.CalledProcessError:
         log("arp-scan returned a non-zero exit status!")
         return False
@@ -231,7 +231,7 @@ def count_devices_present_nmap():
                                                  "-sn",
                                                  "-n",
                                                  "-T5",
-                                                 "192.168.10.50-255"])
+                                                 "192.168.10.0/24"])
     except subprocess.CalledProcessError:
         log("nmap returned a non-zero exit status!")
         return False
