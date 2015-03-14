@@ -18,8 +18,10 @@ import time
 import urllib
 
 # Default callbacks, which do nothing.
-on_away = lambda x: x
-on_home = lambda x: x
+on_away = lambda: None
+on_away_quiet_hours = lambda: None
+on_home = lambda: None
+on_home_quiet_hours = lambda: None
 
 def run():
     create_pidfile()
@@ -86,24 +88,22 @@ def search():
             save_state("away")
 
             if within_quiet_hours():
-                log("Within quiet hours! Simply notifying.")
-                send_message("It appears you've left, but it's late, and I'm tired. Turn off your own lights.")
+                log("Within quiet hours! Triggering on_away_quiet_hours() callback.")
+                on_away_quiet_hours()
             else:
+                log("Triggering on_away() callback.")
                 on_away()
-                #lights_off()
-                send_message("Lights are now off. Have a good day.")
 
     elif state == "away" and device_count > 0:
         log("*** State changing to home.")
         save_state("home")
 
         if within_quiet_hours():
-            log("Within quiet hours! Simply notifying.")
-            send_message("It appers you've returned home, but it's late, and I have a headache. Go to bed.")
+            log("Within quiet hours! Triggering on_home_quiet_hours() callback.")
+            on_home_quiet_hours()
         else:
+            log("Triggering on_home() callback.")
             on_home()
-            #lights_on()
-            send_message("Lights are now on. Welcome home.")
         
     else:
         log("State is '%s', device count is %s; nothing to do." % (state, device_count))
@@ -250,26 +250,6 @@ def count_devices_in_string(search_string):
             count += 1
 
     return count
-
-def send_message(message):
-    """Send a text message to my device through Twilio."""
-    url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % config.config['twilio_account_id']
-    payload = {
-        'Body': message,
-        'From': config.config['twilio_outgoing_number'],
-    }
-    creds = (config.config['twilio_account_id'], config.config['twilio_auth_token'])
-
-    numbers = config.config['twilio_notification_numbers']
-    for number in numbers.split(","):
-        payload['To'] = number
-        response = requests.post(url, data=payload, auth=creds)
-        rsdata = response.json()
-
-        log("Message %s to %s '%s' at %s." % (rsdata['sid'],
-                                            rsdata['to'],
-                                            rsdata['status'],
-                                            rsdata['date_created']))
 
 if __name__ == "__main__":
     print "This is the main Lamplighter module. Import it to use it."
