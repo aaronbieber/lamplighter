@@ -1,11 +1,24 @@
 #!/usr/bin/env python
 
-"""Lamplighter: Automated light management.
+"""
+Lamplighter: A presence manager based on network status.
 
 Lamplighter will periodically search the network for specific MAC
-addresses. If the MAC addresses are not found, it will switch off
-the lights. It does the inverse when at least one MAC address
-appears."""
+addresses. If the MAC addresses are not found, it will trigger a
+callback, which is illustrated to switch off your Philips Hue lights,
+but in reality can do any number of things. When at least one MAC
+address appears, another callback is triggered, which is illustrated
+to turn the lights back on.
+
+Using Lamplighter is simple: create a dispatcher script based off of
+dispatcher_example.py and keep that script running somehow. I like
+Supervisor, but any daemon management system will suffice.
+
+A couple of options must be set; rename config_example.ini to
+config.ini and set them there. You can piggyback your own options onto
+that file and access the settings from your dispatcher (see
+dispatcher_example.py for more).
+"""
 
 from ConfigParser import SafeConfigParser
 import config
