@@ -79,7 +79,7 @@ def search():
         log("*** Possible change to away; wait 10 sec. and search 3 more times...")
         time.sleep(10)
 
-        if confirm_phone_count():
+        if confirm_phone_count_is_zero():
             log("Phones confirmed missing. State changed to away.")
             save_state("away")
 
@@ -126,11 +126,11 @@ def within_quiet_hours():
        (start <= now.hour or end > now.hour):
         return True
         
-def confirm_phone_count():
+def confirm_phone_count_is_zero():
     log("*** Performing 3 confirmation searches...")
 
     for x in range(3):
-        test = count_phones_present()
+        test = count_phones_present(confirm_with_arp = True)
         log("*** Found %s phone(s)." % test)
 
         if test is not 0:
@@ -205,6 +205,8 @@ def count_phones_present(confirm_with_arp = False):
     count = count_phones_present_nmap()
 
     if confirm_with_arp and count is 0:
+        log("nmap returned zero; waiting two seconds and confirming with arp.")
+        time.sleep(2)
         count = count_phones_present_arp()
 
     return count
