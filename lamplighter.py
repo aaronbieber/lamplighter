@@ -241,7 +241,7 @@ def count_devices_present_nmap():
 def count_devices_in_string(search_string):
     count = 0
     for name in config.config['devices']:
-        if search_string.find(config.config['devices'][name]) > -1:
+        if search_string.lower().find(config.config['devices'][name].lower()) > -1:
             log("Found %s's device." % name.title())
             count += 1
 
