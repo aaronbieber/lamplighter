@@ -53,26 +53,27 @@ def search():
     log("--- Commencing search%s ---" % quiet_hours)
 
     state = current_state()
-    if state == False:
-        log("No current state. Initializing.")
-
-        if device_count is 0:
-            log("Current state: away.")
-            state = "away"
-        else:
-            log("Current state: home.")
-            state = "home"
-
-        save_state(state)
-        
-    log("Current state is %s." % state)
 
     device_count = False
-    confirm_with_arp = state == "home"
+    confirm_with_arp = state == "home" or state == False
     while device_count is False:
         log("Finding initial device count...")
         device_count = count_devices_present(confirm_with_arp = confirm_with_arp)
         
+    if state == False:
+        log("No current state. Initializing.")
+
+        if device_count is 0:
+            log("State initialized to away.")
+            state = "away"
+        else:
+            log("State initialized to home.")
+            state = "home"
+
+        save_state(state)
+    else:
+        log("Current state is %s." % state)
+
     # Either due to wireless network blips or general unreliability of
     # a single network scan, these scans are guaranteed to be correct
     # about finding any given device, but also very likely to be
@@ -85,10 +86,12 @@ def search():
     # happened to me, a lot).
     #
     # This seems to be a fairly good compromise between accuracy and
-    # complexity: if it looks like no devices were found, wait ten
-    # seconds and then scan for them three more times, waiting for
-    # five seconds between each scan. If all three of those scans find
-    # nothing, we'll commit to the state change.
+    # complexity: if nmap finds no devices, ask arp-scan to look
+    # around. Many times, arp-scan will find a device and the search
+    # can be called off. If arp-scan also finds no devices, we wait
+    # ten seconds and repeat the whole search three more times (that's
+    # six total network scans). If nothing is found all six times,
+    # we'll transition to "away."
     if state == "home" and device_count is 0:
         # Delay ten seconds and then check three more times.
         log("*** Possible change to away; wait 10 sec. and search 3 more times...")
