@@ -7,19 +7,18 @@ addresses. If the MAC addresses are not found, it will switch off
 the lights. It does the inverse when at least one MAC address
 appears."""
 
+from ConfigParser import SafeConfigParser
+import config
+import datetime
 import os
+import requests
+import signal
+import subprocess
 import sys
 import time
-import datetime
-import subprocess
-import requests
 import urllib
-import signal
-from ConfigParser import SafeConfigParser
 
-import config
-
-def main():
+def run():
     create_pidfile()
     config.load()
     signal.signal(signal.SIGTERM, handle_term)
@@ -276,4 +275,4 @@ def send_message(message):
                                             rsdata['date_created']))
 
 if __name__ == "__main__":
-    main()
+    print "This is the main Lamplighter module. Import it to use it."
