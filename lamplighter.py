@@ -41,7 +41,7 @@ def search():
     if state == False:
         log("No current state. Initializing.")
 
-        if phone_count is 0:
+        if device_count is 0:
             log("Current state: away.")
             state = "away"
         else:
@@ -52,11 +52,11 @@ def search():
         
     log("Current state is %s." % state)
 
-    phone_count = False
+    device_count = False
     confirm_with_arp = state == "home"
-    while phone_count is False:
-        log("Finding initial phone count...")
-        phone_count = count_phones_present(confirm_with_arp = confirm_with_arp)
+    while device_count is False:
+        log("Finding initial device count...")
+        device_count = count_devices_present(confirm_with_arp = confirm_with_arp)
         
     # Either due to wireless network blips or general unreliability of
     # a single network scan, these scans are guaranteed to be correct
@@ -74,13 +74,13 @@ def search():
     # seconds and then scan for them three more times, waiting for
     # five seconds between each scan. If all three of those scans find
     # nothing, we'll commit to the state change.
-    if state == "home" and phone_count is 0:
+    if state == "home" and device_count is 0:
         # Delay ten seconds and then check three more times.
         log("*** Possible change to away; wait 10 sec. and search 3 more times...")
         time.sleep(10)
 
-        if confirm_phone_count_is_zero():
-            log("Phones confirmed missing. State changed to away.")
+        if confirm_device_count_is_zero():
+            log("Devices confirmed missing. State changed to away.")
             save_state("away")
 
             if within_quiet_hours():
@@ -90,7 +90,7 @@ def search():
                 lights_off()
                 send_message("Lights are now off. Have a good day.")
 
-    elif state == "away" and phone_count > 0:
+    elif state == "away" and device_count > 0:
         log("*** State changing to home.")
         save_state("home")
 
@@ -102,7 +102,7 @@ def search():
             send_message("Lights are now on. Welcome home.")
         
     else:
-        log("State is '%s', phone count is %s; nothing to do." % (state, phone_count))
+        log("State is '%s', device count is %s; nothing to do." % (state, device_count))
 
 def within_quiet_hours():
     now = datetime.datetime.now()
@@ -126,15 +126,15 @@ def within_quiet_hours():
        (start <= now.hour or end > now.hour):
         return True
         
-def confirm_phone_count_is_zero():
+def confirm_device_count_is_zero():
     log("*** Performing 3 confirmation searches...")
 
     for x in range(3):
-        test = count_phones_present(confirm_with_arp = True)
-        log("*** Found %s phone(s)." % test)
+        test = count_devices_present(confirm_with_arp = True)
+        log("*** Found %s device(s)." % test)
 
         if test is not 0:
-            log("*** False alarm, phone(s) found.")
+            log("*** False alarm, device(s) found.")
             return False
 
         time.sleep(5)
@@ -189,7 +189,7 @@ def create_pidfile():
     log("Creating pidfile for %s" % pid)
     file(get_pidfile_name(), "w").write(pid)
 
-def count_phones_present(confirm_with_arp = False):
+def count_devices_present(confirm_with_arp = False):
     """
     Count devices on the network. Return the count, or False on error.
 
@@ -202,16 +202,16 @@ def count_phones_present(confirm_with_arp = False):
     confirmation of the zero value.
     """
 
-    count = count_phones_present_nmap()
+    count = count_devices_present_nmap()
 
     if confirm_with_arp and count is 0:
-        log("nmap returned zero; waiting two seconds and confirming with arp.")
-        time.sleep(2)
-        count = count_phones_present_arp()
+        log("nmap returned zero; waiting one second and confirming with arp.")
+        time.sleep(1)
+        count = count_devices_present_arp()
 
     return count
     
-def count_phones_present_arp():
+def count_devices_present_arp():
     log("Searching for devices with arp-scan.")
     try:
         device_search = subprocess.check_output(["sudo",
@@ -223,15 +223,15 @@ def count_phones_present_arp():
 
     return count_devices_in_string(device_search)
     
-def count_phones_present_nmap():
+def count_devices_present_nmap():
     log("Searching for devices with nmap.")
     try:
         device_search = subprocess.check_output(["sudo",
-                                                "nmap",
-                                                "-sn",
-                                                "-n",
-                                                "-T5",
-                                                "192.168.10.50-255"])
+                                                 "nmap",
+                                                 "-sn",
+                                                 "-n",
+                                                 "-T5",
+                                                 "192.168.10.50-255"])
     except subprocess.CalledProcessError:
         log("nmap returned a non-zero exit status!")
         return False
@@ -256,7 +256,7 @@ def lights_off():
     r = requests.post("http://lights.skynet.net/scenes/by_name/All+Off")
 
 def send_message(message):
-    """Send a text message to my phone through Twilio."""
+    """Send a text message to my device through Twilio."""
     url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % config.config['twilio_account_id']
     payload = {
         'Body': message,
