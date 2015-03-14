@@ -11,18 +11,21 @@ from ConfigParser import SafeConfigParser
 import config
 import datetime
 import os
-import requests
 import signal
 import subprocess
 import sys
 import time
 import urllib
 
+# Default callbacks, which do nothing.
+on_away = lambda x: x
+on_home = lambda x: x
+
 def run():
     create_pidfile()
     config.load()
     signal.signal(signal.SIGTERM, handle_term)
-    signal.signal(signal.SIGPOLL, handle_poll)
+    signal.signal(signal.SIGHUP, handle_hup)
     
     while True:
         search()
@@ -86,7 +89,8 @@ def search():
                 log("Within quiet hours! Simply notifying.")
                 send_message("It appears you've left, but it's late, and I'm tired. Turn off your own lights.")
             else:
-                lights_off()
+                on_away()
+                #lights_off()
                 send_message("Lights are now off. Have a good day.")
 
     elif state == "away" and device_count > 0:
@@ -97,7 +101,8 @@ def search():
             log("Within quiet hours! Simply notifying.")
             send_message("It appers you've returned home, but it's late, and I have a headache. Go to bed.")
         else:
-            lights_on()
+            on_home()
+            #lights_on()
             send_message("Lights are now on. Welcome home.")
         
     else:
@@ -172,8 +177,8 @@ def get_pidfile_name():
     """Return the name of our pid file."""
     return str("/var/run/lamplighter.pid")
 
-def handle_poll(signum, frame):
-    log("Received SIGPOLL, reloading config file.")
+def handle_hup(signum, frame):
+    log("Received SIGHUP, reloading config file.")
     config.load()
 
 def handle_term(signum, frame):
@@ -245,14 +250,6 @@ def count_devices_in_string(search_string):
             count += 1
 
     return count
-
-def lights_on():
-    """Turn the lights on."""
-    r = requests.post("http://lights.skynet.net/scenes/by_name/Relax")
-
-def lights_off():
-    """Turn the lights off."""
-    r = requests.post("http://lights.skynet.net/scenes/by_name/All+Off")
 
 def send_message(message):
     """Send a text message to my device through Twilio."""
