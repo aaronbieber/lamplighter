@@ -18,10 +18,10 @@ import time
 import urllib
 
 # Default callbacks, which do nothing.
-on_away = lambda: None
-on_away_quiet_hours = lambda: None
 on_home = lambda: None
+on_away = lambda: None
 on_home_quiet_hours = lambda: None
+on_away_quiet_hours = lambda: None
 
 def run():
     create_pidfile()
