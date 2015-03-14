@@ -20,6 +20,7 @@ dispatcher. Simply place key/value pairs in your "config.ini" file and
 access them like this:
 
     import config
+    config.load()
     print config.config["your_key"]
 
 Note that the config module will *always* return configuration values
