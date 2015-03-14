@@ -12,8 +12,8 @@ Lamplighter's name is inspired by its original use case: to turn the lights off
 when the house is empty, and to turn them back on upon anyone's return.
 
 Lamplighter also understands the concept of "quiet hours," which is simply a
-range of time during which your callback functions can do something different,
-for example, you may want to set a period of time during the night where
+range of time during which your callback functions can do something different.
+For example, you may want to set a period of time during the night where
 Lamplighter will never turn the lights on or off but instead write to a log file
 or send you a text message.
 
@@ -38,13 +38,12 @@ It's easy to get Lamplighter running. Simply:
   2. Configure `sudoers` so that `nmap` and `arp-scan` can both be run with
      escalated privileges (because promiscuous network scanning requires
      it). How this is accomplished depends on how Lamplighter itself is run; if
-     Supervisor is configured to run Lamplighter as root, there is no need to
-     configure `sudoers` at all. If Lamplighter runs as a user account, that
-     user account should be set up to allow `sudo nmap` and `sudo arp-scan`
-     to be run without a password.
+     Lamplighter is run as root, there is no need to configure `sudoers` at
+     all. If Lamplighter runs as a user account, that user account should be set
+     up to allow `sudo nmap` and `sudo arp-scan` to be run without a password.
   3. Rename `config_example.ini` to `config.ini` and enter appropriate values.
   4. Rename `dispatcher_example.py` to `dispatcher.py` (or any other name of
      your choosing) and write useful callback functions that do whatever you
-     want them to, following the pattern in the examples.
+     want them to, following the pattern in the example.
   5. Run your dispatcher script, preferably using a daemon management system
      like Supervisor or Upstart.
