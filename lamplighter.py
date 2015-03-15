@@ -205,6 +205,7 @@ def log(message, level = LOG_WARN):
         pid = os.getpid()
         now = time.strftime("%Y-%m-%d %H:%M:%S")
         print "[%s] %s: %s" % (pid, now, message)
+        sys.stdout.flush()
 
 def state_file_path():
     """Return the path to the state file."""
