@@ -36,7 +36,7 @@ on_away = lambda: None
 
 # Definition of log levels.
 LOG_NONE  = 0
-LOG_WARN  = 1
+LOG_BRIEF  = 1
 LOG_INFO  = 2
 LOG_DEBUG = 3
 
@@ -51,25 +51,25 @@ def run():
     signal.signal(signal.SIGHUP, handle_hup)
     start_time  = datetime.datetime.now().replace(microsecond = 0)
     last_report = None
-    
+
     log("Lamplighter has started.", LOG_NONE)
     log("Logging level is set to %s." % config.config["log_level"], LOG_NONE)
-    
+
     if config.config["report_frequency"] is 0 or \
-       globals()[config.config["log_level"]] < LOG_WARN:
+       globals()[config.config["log_level"]] < LOG_BRIEF:
         log("A summary report will not be logged.", LOG_NONE)
     else:
         log("A summary report will be logged every %s seconds." % config.config["report_frequency"], LOG_NONE)
-    
+
     while True:
         last_report = maybe_print_stats(start_time, last_report)
         search()
         time.sleep(1)
-        
+
 def maybe_print_stats(start_time, last_report):
     global scans
     global state_changes
-    
+
     if config.config["report_frequency"] is 0:
         return
 
@@ -80,10 +80,10 @@ def maybe_print_stats(start_time, last_report):
         log("Running for %s. Performed %s scan(s), changed state %s time(s)." % (running_for,
                                                                                    scans,
                                                                                    state_changes),
-            LOG_WARN)
-        
+            LOG_BRIEF)
+
     return last_report
-        
+
 def search():
     """The main thread."""
     quiet_hours = ""
@@ -98,7 +98,7 @@ def search():
     while device_count is False:
         log("Finding initial device count...", LOG_DEBUG)
         device_count = count_devices_present(confirm_with_arp = confirm_with_arp)
-        
+
     if state == False:
         log("No current state. Initializing.", LOG_DEBUG)
 
@@ -138,7 +138,7 @@ def search():
         time.sleep(10)
 
         if confirm_device_count_is_zero():
-            log("State changed to away.", LOG_WARN)
+            log("State changed to away.", LOG_BRIEF)
             save_state("away")
 
             if within_quiet_hours():
@@ -149,7 +149,7 @@ def search():
                 on_away(False)
 
     elif state == "away" and device_count > 0:
-        log("State changed to home.", LOG_WARN)
+        log("State changed to home.", LOG_BRIEF)
         save_state("home")
 
         if within_quiet_hours():
@@ -158,19 +158,19 @@ def search():
         else:
             log("Triggered on_home callback.", LOG_INFO)
             on_home(False)
-        
+
     else:
         log("State is '%s', device count is %s; nothing to do." % (state, device_count), LOG_INFO)
 
 def within_quiet_hours():
     now = datetime.datetime.now()
-    
+
     # The config module does not know nor care what the values within
     # the config file are, nor their types. We'll get strings for
     # everything, so coerce them into ints so we can compare them.
     start = int(config.config['quiet_hours_start'])
     end = int(config.config['quiet_hours_end'])
-    
+
     if start is 0 and end is 0:
         return False
 
@@ -183,7 +183,7 @@ def within_quiet_hours():
     if start > end and \
        (start <= now.hour or end > now.hour):
         return True
-        
+
 def confirm_device_count_is_zero():
     log("*** Performing 3 confirmation searches...", LOG_DEBUG)
 
@@ -199,12 +199,22 @@ def confirm_device_count_is_zero():
 
     return True
 
-def log(message, level = LOG_WARN):
+def log_name_by_value(log_value):
+    vars = globals().copy()
+    for var in vars:
+        if var[:4] == "LOG_" and vars[var] == log_value:
+            return var[4:]
+
+    return False
+
+def log(message, level = LOG_BRIEF):
     """Output a pretty log message."""
-    if globals()[config.config["log_level"]] >= level:
+    user_log_level = config.config["log_level"]
+    log_level_name = log_name_by_value(level)
+    if globals()[user_log_level] >= level:
         pid = os.getpid()
         now = time.strftime("%Y-%m-%d %H:%M:%S")
-        print "[%s] %s: %s" % (pid, now, message)
+        print "[%s] %s %s: %s" % (pid, log_level_name, now, message)
         sys.stdout.flush()
 
 def state_file_path():
@@ -235,12 +245,12 @@ def get_pidfile_name():
     return str("/var/run/lamplighter.pid")
 
 def handle_hup(signum, frame):
-    log("Received SIGHUP, reloading config file.", LOG_WARN)
+    log("Received SIGHUP, reloading config file.", LOG_BRIEF)
     config.load()
 
 def handle_term(signum, frame):
     """Clean up and exit."""
-    log("Received SIGTERM; cleaning up and exiting.", LOG_WARN)
+    log("Received SIGTERM; cleaning up and exiting.", LOG_BRIEF)
     os.unlink(get_pidfile_name())
     sys.exit(0)
 
@@ -271,7 +281,7 @@ def count_devices_present(confirm_with_arp = False):
         count = count_devices_present_arp()
 
     return count
-    
+
 def count_devices_present_arp():
     global scans
     log("Searching for devices with arp-scan.", LOG_DEBUG)
@@ -281,11 +291,11 @@ def count_devices_present_arp():
                                                  "192.168.10.0/24"])
         scans += 1
     except subprocess.CalledProcessError:
-        log("arp-scan returned a non-zero exit status!", LOG_WARN)
+        log("arp-scan returned a non-zero exit status!", LOG_BRIEF)
         return False
 
     return count_devices_in_string(device_search)
-    
+
 def count_devices_present_nmap():
     global scans
     log("Searching for devices with nmap.", LOG_DEBUG)
@@ -298,7 +308,7 @@ def count_devices_present_nmap():
                                                  "192.168.10.0/24"])
         scans += 1
     except subprocess.CalledProcessError:
-        log("nmap returned a non-zero exit status!", LOG_WARN)
+        log("nmap returned a non-zero exit status!", LOG_BRIEF)
         return False
 
     return count_devices_in_string(device_search)
