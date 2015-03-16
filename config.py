@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Configuration module.
 
 This module is a part of Lamplighter. See lamplighter.py for more."""
 
 import os
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 config = {}
 

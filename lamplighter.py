@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Lamplighter: A presence manager based on network status.
@@ -20,7 +20,6 @@ that file and access the settings from your dispatcher (see
 dispatcher_example.py for more).
 """
 
-from ConfigParser import SafeConfigParser
 import config
 import datetime
 import os
@@ -55,7 +54,7 @@ def run():
     log("Lamplighter has started.", LOG_NONE)
     log("Logging level is set to %s." % config.config["log_level"], LOG_NONE)
 
-    if config.config["report_frequency"] is 0 or \
+    if int(config.config["report_frequency"]) is 0 or \
        globals()[config.config["log_level"]] < LOG_BRIEF:
         log("A summary report will not be logged.", LOG_NONE)
     else:
@@ -70,12 +69,12 @@ def maybe_print_stats(start_time, last_report):
     global scans
     global state_changes
 
-    if config.config["report_frequency"] is 0:
+    if int(config.config["report_frequency"]) is 0:
         return
 
     now = int(datetime.datetime.now().strftime("%s"))
-    if last_report is None or now - last_report > config.config["report_frequency"]:
-        last_report = int(datetime.datetime.now().strftime("%s"))
+    if last_report is None or now - last_report > int(config.config["report_frequency"]):
+        last_report = now
         running_for = datetime.datetime.now().replace(microsecond = 0) - start_time
         log("Running for %s. Performed %s scan(s), changed state %s time(s)." % (running_for,
                                                                                    scans,
@@ -214,7 +213,7 @@ def log(message, level = LOG_BRIEF):
     if globals()[user_log_level] >= level:
         pid = os.getpid()
         now = time.strftime("%Y-%m-%d %H:%M:%S")
-        print "[%s] %s %s: %s" % (pid, log_level_name, now, message)
+        print("[%s] %s %s: %s" % (pid, log_level_name, now, message))
         sys.stdout.flush()
 
 def state_file_path():
@@ -226,7 +225,7 @@ def save_state(state):
     statefile_name = state_file_path()
     if os.path.isfile(statefile_name):
         os.unlink(statefile_name)
-    file(statefile_name, "w").write(state)
+    open(statefile_name, "w").write(state)
     state_changes += 1
 
 def current_state():
@@ -258,7 +257,7 @@ def create_pidfile():
     """Create a pidfile for this process."""
     pid = str(os.getpid())
     log("Creating pidfile for %s" % pid, LOG_DEBUG)
-    file(get_pidfile_name(), "w").write(pid)
+    open(get_pidfile_name(), "w").write(pid)
 
 def count_devices_present(confirm_with_arp = False):
     """
@@ -286,9 +285,9 @@ def count_devices_present_arp():
     global scans
     log("Searching for devices with arp-scan.", LOG_DEBUG)
     try:
-        device_search = subprocess.check_output(["sudo",
-                                                 "arp-scan",
-                                                 "192.168.10.0/24"])
+        device_search = str(subprocess.check_output(["sudo",
+                                                     "arp-scan",
+                                                     "192.168.10.0/24"]))
         scans += 1
     except subprocess.CalledProcessError:
         log("arp-scan returned a non-zero exit status!", LOG_BRIEF)
@@ -300,12 +299,12 @@ def count_devices_present_nmap():
     global scans
     log("Searching for devices with nmap.", LOG_DEBUG)
     try:
-        device_search = subprocess.check_output(["sudo",
-                                                 "nmap",
-                                                 "-sn",
-                                                 "-n",
-                                                 "-T5",
-                                                 "192.168.10.0/24"])
+        device_search = str(subprocess.check_output(["sudo",
+                                                     "nmap",
+                                                     "-sn",
+                                                     "-n",
+                                                     "-T5",
+                                                     "192.168.10.0/24"]))
         scans += 1
     except subprocess.CalledProcessError:
         log("nmap returned a non-zero exit status!", LOG_BRIEF)
@@ -323,4 +322,4 @@ def count_devices_in_string(search_string):
     return count
 
 if __name__ == "__main__":
-    print "This is the main Lamplighter module. Import it to use it."
+    print("This is the main Lamplighter module. Import it to use it.")
