@@ -20,7 +20,6 @@ that file and access the settings from your dispatcher (see
 dispatcher_example.py for more).
 """
 
-import config
 import datetime
 import os
 import signal
@@ -29,27 +28,27 @@ import sys
 import time
 import urllib
 
+# Lamplighter modules
+import config
+import stats
+
 # Default callbacks, which do nothing.
 on_home = lambda: None
 on_away = lambda: None
 
 # Definition of log levels.
 LOG_NONE  = 0
-LOG_BRIEF  = 1
+LOG_BRIEF = 1
 LOG_INFO  = 2
 LOG_DEBUG = 3
-
-# Just a couple of globals for aggregating stats.
-scans         = 0
-state_changes = 0
 
 def run():
     create_pidfile()
     config.load()
     signal.signal(signal.SIGTERM, handle_term)
     signal.signal(signal.SIGHUP, handle_hup)
-    start_time  = datetime.datetime.now().replace(microsecond = 0)
-    last_report = None
+    
+    stats.start()
 
     log("Lamplighter has started.", LOG_NONE)
     log("Logging level is set to %s." % config.config["log_level"], LOG_NONE)
@@ -61,27 +60,21 @@ def run():
         log("A summary report will be logged every %s seconds." % config.config["report_frequency"], LOG_NONE)
 
     while True:
-        last_report = maybe_print_stats(start_time, last_report)
+        maybe_print_stats()
         search()
         time.sleep(1)
 
-def maybe_print_stats(start_time, last_report):
-    global scans
-    global state_changes
-
+def maybe_print_stats():
     if int(config.config["report_frequency"]) is 0:
         return
 
-    now = int(datetime.datetime.now().strftime("%s"))
-    if last_report is None or now - last_report > int(config.config["report_frequency"]):
-        last_report = now
-        running_for = datetime.datetime.now().replace(microsecond = 0) - start_time
-        log("Running for %s. Performed %s scan(s), changed state %s time(s)." % (running_for,
-                                                                                   scans,
-                                                                                   state_changes),
+    if stats.should_report(int(config.config["report_frequency"])):
+        stats.update_last_report()
+        log("Up for %s. Performed %s/%s scan/confirmation(s), changed state %s time(s)." % (stats.running_for(),
+                                                                                            stats.scans,
+                                                                                            stats.confirmation_scans,
+                                                                                            stats.state_changes),
             LOG_BRIEF)
-
-    return last_report
 
 def search():
     """The main thread."""
@@ -222,11 +215,13 @@ def state_file_path():
 
 def save_state(state):
     """Save the given state to disk."""
+
     statefile_name = state_file_path()
     if os.path.isfile(statefile_name):
         os.unlink(statefile_name)
     open(statefile_name, "w").write(state)
-    state_changes += 1
+
+    stats.state_changes += 1
 
 def current_state():
     """Find the current (last saved) state."""
@@ -282,13 +277,13 @@ def count_devices_present(confirm_with_arp = False):
     return count
 
 def count_devices_present_arp():
-    global scans
+    """Count devices on the network using arp-scan."""
     log("Searching for devices with arp-scan.", LOG_DEBUG)
     try:
         device_search = str(subprocess.check_output(["sudo",
                                                      "arp-scan",
                                                      "192.168.10.0/24"]))
-        scans += 1
+        stats.confirmation_scans += 1
     except subprocess.CalledProcessError:
         log("arp-scan returned a non-zero exit status!", LOG_BRIEF)
         return False
@@ -296,7 +291,7 @@ def count_devices_present_arp():
     return count_devices_in_string(device_search)
 
 def count_devices_present_nmap():
-    global scans
+    """Count devices on the network using nmap."""
     log("Searching for devices with nmap.", LOG_DEBUG)
     try:
         device_search = str(subprocess.check_output(["sudo",
@@ -305,7 +300,7 @@ def count_devices_present_nmap():
                                                      "-n",
                                                      "-T5",
                                                      "192.168.10.0/24"]))
-        scans += 1
+        stats.scans += 1
     except subprocess.CalledProcessError:
         log("nmap returned a non-zero exit status!", LOG_BRIEF)
         return False
