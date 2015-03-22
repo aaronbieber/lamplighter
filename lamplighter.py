@@ -58,6 +58,10 @@ def run():
         log("A summary report will not be logged.", LOG_NONE)
     else:
         log("A summary report will be logged every %s seconds." % config.config["report_frequency"], LOG_NONE)
+        
+    state = current_state()
+    if state is not False:
+        log("Resumed with a previously saved state of \"%s\"." % state, LOG_BRIEF)
 
     while True:
         maybe_print_stats()
