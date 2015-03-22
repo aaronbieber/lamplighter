@@ -14,7 +14,6 @@ last_report        = None
 
 def start():
     global start_time
-    print("Starting stats.")
     start_time = now()
 
 def running_for():
