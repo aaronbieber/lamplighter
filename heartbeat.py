@@ -2,6 +2,7 @@
 
 import os
 import sys
+import copy
 import sqlite3
 import dispatcher
 import config
@@ -14,8 +15,10 @@ HB = "/var/www/glow/htdocs/data/heartbeat.db"
 LL = "/home/airborne/bin/lamplighter/lamplighter.db"
 
 # Default callbacks, which do nothing.
-on_home = lambda quiet, who = []: None
-on_away = lambda quiet, who = []: None
+on_home       = lambda quiet, who: None
+on_away       = lambda quiet, who: None
+on_first_home = lambda quiet, who: None
+on_last_away  = lambda quiet, who: None
 
 # Definition of log levels.
 LOG_NONE  = 0
@@ -139,37 +142,40 @@ def observe_state_changes():
 
     # Last recorded state.
     known_state = get_all_states()
-
-    # Current combined state (anyone home = home, else away)
-    initial_state = get_combined_state()
+    new_state = []
 
     # Whose state changed?
-    who_changed = []
+    changes = []
 
     for row in known_state:
+        new_row = copy.deepcopy(row)
         if row["state"] == "away" and row["who"] in people_at_home:
             # Has returned home!
             set_state(row["who"], "home")
+            new_row['state'] = 'home'
             log("%s has returned home!" % row["who"])
-            who_changed.append(row["who"])
+            changes.append({ 'who': row["who"], 'change': ('away', 'home') })
 
         elif row["state"] == "home" and row["who"] not in people_at_home:
             # Has gone away!
             set_state(row["who"], "away")
+            new_row['state'] = 'away'
             log("%s appears to have left!" % row["who"])
             likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime("%c")
             log("Likely departure time: %s" % likely_departure)
-            who_changed.append(row["who"])
+            changes.append({ 'who': row["who"], 'change': ('home', 'away') })
 
         else:
             since = datetime.datetime.fromtimestamp(row["updated"])
             log("No change for %s since %s (%s)." % (row["who"], since, row["state"]), LOG_INFO)
 
-    return (initial_state, get_combined_state(), who_changed)
+        new_state.append(new_row)
 
-def get_combined_state():
-    states = get_all_states()
+    return (get_combined_state(known_state),
+            get_combined_state(new_state),
+            changes)
 
+def get_combined_state(states):
     if all(r["state"] == "away" for r in states):
         return "away"
     else:
@@ -207,20 +213,32 @@ def run():
 
     while True:
         state_change = observe_state_changes()
+        log("Observed change: %s" % pformat(state_change, indent = 2), LOG_INFO)
+
         if state_change[0] != state_change[1]:
             log("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
 
-        if state_change[1] == "away":
-            on_away(within_quiet_hours(), state_change[2])
+            if state_change[1] == "away":
+                on_last_away(within_quiet_hours(), state_change[2][0]['who'])
 
-        elif state_change[1] == "home":
-            on_home(within_quiet_hours(), state_change[2])
+            elif state_change[1] == "home":
+                on_first_home(within_quiet_hours(), state_change[2][0]['who'])
+
+        elif len(state_change[2]):
+            # Someone's state changed, but it didn't affect the combined state.
+            for change in state_change[2]:
+                if change['change'][1] == 'away':
+                    on_away(within_quiet_hours(), change['who'])
+                elif change['change'][1] == 'home':
+                    on_home(within_quiet_hours(), change['who'])
+
+            log("Single state change: %s" % pformat(state_change[2], indent = 2))
 
         else:
             no_ops += 1
             if no_ops >= 60:
                 no_ops = 0
-                log("No state changes observed in the last five minutes.", LOG_BRIEF)
+                log("No state changes observed in the last five minutes.")
 
         time.sleep(5)
 
