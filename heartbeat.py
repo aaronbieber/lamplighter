@@ -145,7 +145,7 @@ def observe_state_changes():
     new_state = []
 
     # Whose state changed?
-    changes = []
+    changes = {}
 
     for row in known_state:
         new_row = copy.deepcopy(row)
@@ -154,7 +154,7 @@ def observe_state_changes():
             set_state(row["who"], "home")
             new_row['state'] = 'home'
             log("%s has returned home!" % row["who"])
-            changes.append({ 'who': row["who"], 'change': ('away', 'home') })
+            changes[row["who"]] = ('away', 'home')
 
         elif row["state"] == "home" and row["who"] not in people_at_home:
             # Has gone away!
@@ -163,7 +163,7 @@ def observe_state_changes():
             log("%s appears to have left!" % row["who"])
             likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime("%c")
             log("Likely departure time: %s" % likely_departure)
-            changes.append({ 'who': row["who"], 'change': ('home', 'away') })
+            changes[row["who"]] = ('away', 'home')
 
         else:
             since = datetime.datetime.fromtimestamp(row["updated"])
@@ -219,18 +219,18 @@ def run():
             log("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
 
             if state_change[1] == "away":
-                on_last_away(within_quiet_hours(), state_change[2][0]['who'])
+                on_last_away(within_quiet_hours(), state_change[2])
 
             elif state_change[1] == "home":
-                on_first_home(within_quiet_hours(), state_change[2][0]['who'])
+                on_first_home(within_quiet_hours(), state_change[2])
 
         elif len(state_change[2]):
             # Someone's state changed, but it didn't affect the combined state.
-            for change in state_change[2]:
-                if change['change'][1] == 'away':
-                    on_away(within_quiet_hours(), change['who'])
-                elif change['change'][1] == 'home':
-                    on_home(within_quiet_hours(), change['who'])
+            for alias in state_change[2]:
+                if state_change[2][alias][1] == 'away':
+                    on_away(within_quiet_hours(), alias)
+                elif state_change[2][alias][1] == 'home':
+                    on_home(within_quiet_hours(), alias)
 
             log("Single state change: %s" % pformat(state_change[2], indent = 2))
 
