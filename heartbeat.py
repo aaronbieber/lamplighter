@@ -1,25 +1,52 @@
 #!/usr/bin/env python3
 
+import os
+import sys
 import sqlite3
 import dispatcher
 import config
 import time
 import datetime
 from pprint import pprint
+from pprint import pformat
 
 HB = '/var/www/glow/htdocs/data/heartbeat.db'
 LL = '/home/airborne/bin/lamplighter/lamplighter.db'
 
 # Default callbacks, which do nothing.
-on_home = lambda: None
-on_away = lambda: None
+on_home = lambda quiet, who = '': None
+on_away = lambda quiet, who = '': None
+
+# Definition of log levels.
+LOG_NONE  = 0
+LOG_BRIEF = 1
+LOG_INFO  = 2
+LOG_DEBUG = 3
+
+def log_name_by_value(log_value):
+  vars = globals().copy()
+  for var in vars:
+    if var[:4] == "LOG_" and vars[var] == log_value:
+      return var[4:]
+
+  return False
+
+def log(message, level = LOG_BRIEF):
+  """Output a pretty log message."""
+  user_log_level = config.config["log_level"]
+  log_level_name = log_name_by_value(level)
+  if globals()[user_log_level] >= level:
+    pid = os.getpid()
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    print("[%s] %s %s: %s" % (pid, log_level_name, now, message))
+    sys.stdout.flush()
 
 def query(db, sql, params = {}, attempt = 1):
   conn = sqlite3.connect(db)
   c = conn.cursor()
   try:
-    #print("Executing: %s" % sql)
-    #pprint(params)
+    log("Executing: %s" % sql, LOG_DEBUG)
+    log("Params:\n%s" % pformat(params, indent = 2), LOG_DEBUG)
     c.execute(sql, params)
     conn.commit()
     row = c.fetchall()
@@ -27,7 +54,7 @@ def query(db, sql, params = {}, attempt = 1):
     return row
   except sqlite3.OperationalError:
     if attempt > 1:
-      print("Big trouble in little China.")
+      log("Big trouble in little China.")
       return False
 
     init_database()
@@ -60,11 +87,11 @@ def get_all_states():
 def set_state(who, state):
   exists = get_state(who)
   if exists == False:
-    print("State not found, adding.")
+    log("State not found, adding.", LOG_DEBUG)
     return query(LL, "INSERT INTO state (who, state, updated) VALUES (:who, :state, :updated)",
                     { "who": who, "state": state, "updated": int(time.time()) })
   else:
-    print("State found, updating.")
+    log("State found, updating.", LOG_DEBUG)
     return query(LL, "UPDATE state SET state = :state, updated = :updated WHERE who = :who",
                     { "who": who, "state": state, "updated": int(time.time()) })
 
@@ -93,12 +120,12 @@ def who_is_home():
   heartbeats_by_person = { row[0]: row[1] for row in heartbeats }
 
   # Only names whose last heartbeat was < 45 minutes ago.
-  people_here = [ name
+  people_at_home = [ name
                   for name
                   in heartbeats_by_person.keys()
                   if heartbeats_by_person[name] < 2700 ]
 
-  return people_here
+  return people_at_home
 
 def observe_state_changes():
   # Current presence based on heartbeat.
@@ -113,18 +140,20 @@ def observe_state_changes():
     if row['state'] == 'away' and row['who'] in people_at_home:
       # Has returned home!
       set_state(row['who'], 'home')
-      print("%s has returned home!" % row['who'])
+      log("%s has returned home!" % row['who'])
       state_changed = True
 
     elif row['state'] == 'home' and row['who'] not in people_at_home:
       # Has gone away!
       set_state(row['who'], 'away')
-      print("%s appears to have left!" % row['who'])
+      log("%s appears to have left!" % row['who'])
+      likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime('%c')
+      log("Likely departure time: %s" % likely_departure)
       state_changed = True
 
     else:
       since = datetime.datetime.fromtimestamp(row['updated'])
-      print("No change for %s since %s (%s)." % (row['who'], since, row['state']))
+      log("No change for %s since %s (%s)." % (row['who'], since, row['state']), LOG_INFO)
 
   return (initial_state, get_combined_state())
 
@@ -136,17 +165,67 @@ def get_combined_state():
   else:
     return 'home'
 
-def main():
-  config.load()
+def within_quiet_hours():
+  now = datetime.datetime.now()
+
+  # The config module does not know nor care what the values within
+  # the config file are, nor their types. We'll get strings for
+  # everything, so coerce them into ints so we can compare them.
+  start = int(config.config['quiet_hours_start'])
+  end = int(config.config['quiet_hours_end'])
+
+  if start is 0 and end is 0:
+      return False
+
+  # Quiet hours is a range within the same day.
+  if start < end and \
+     start <= now.hour and end > now.hour:
+      return True
+
+  # Quiet hours is a range spanning a day change (through midnight).
+  if start > end and \
+     (start <= now.hour or end > now.hour):
+      return True
+
+  return False
+
+def run():
+  """Loop continuously, responding to state changes."""
+
+  no_ops = 0
+  log("Beginning observation...")
 
   while True:
-    print("\n** %s State check:" % time.strftime('%c'))
-
     state_change = observe_state_changes()
     if state_change[0] != state_change[1]:
-      print("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
+      log("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
+
+      if state_change[1] == 'away':
+        on_away(within_quiet_hours())
+
+      elif state_change[1] == 'home':
+        on_home(within_quiet_hours())
+
+    else:
+      no_ops += 1
+      if no_ops >= 60:
+        no_ops = 0
+        log("No state changes observed in the last five minutes.", LOG_BRIEF)
 
     time.sleep(5)
+
+def main():
+  """Run the main program directly.
+
+Note that this program is designed to be imported into a dispatcher
+script and run from there (by calling run()). This entrypoint
+supports running this script directly, which will do essentially the
+same thing, except that the on_away() and on_home() callbacks will
+be empty, so it won't do much."""
+  config.load()
+
+  log("Configuration loaded.")
+  run()
 
 if __name__ == "__main__":
     main()
