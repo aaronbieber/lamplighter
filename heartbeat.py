@@ -10,6 +10,10 @@ from pprint import pprint
 HB = '/var/www/glow/htdocs/data/heartbeat.db'
 LL = '/home/airborne/bin/lamplighter/lamplighter.db'
 
+# Default callbacks, which do nothing.
+on_home = lambda: None
+on_away = lambda: None
+
 def query(db, sql, params = {}, attempt = 1):
   conn = sqlite3.connect(db)
   c = conn.cursor()
@@ -96,34 +100,52 @@ def who_is_home():
 
   return people_here
 
-def process_state_changes():
+def observe_state_changes():
   # Current presence based on heartbeat.
   people_at_home = who_is_home()
 
   # Last recorded state.
   known_state = get_all_states()
 
+  initial_state = get_combined_state()
+
   for row in known_state:
     if row['state'] == 'away' and row['who'] in people_at_home:
       # Has returned home!
       set_state(row['who'], 'home')
       print("%s has returned home!" % row['who'])
+      state_changed = True
 
     elif row['state'] == 'home' and row['who'] not in people_at_home:
       # Has gone away!
       set_state(row['who'], 'away')
       print("%s appears to have left!" % row['who'])
+      state_changed = True
 
     else:
       since = datetime.datetime.fromtimestamp(row['updated'])
       print("No change for %s since %s (%s)." % (row['who'], since, row['state']))
+
+  return (initial_state, get_combined_state())
+
+def get_combined_state():
+  states = get_all_states()
+
+  if all(r['state'] == 'away' for r in states):
+    return 'away'
+  else:
+    return 'home'
 
 def main():
   config.load()
 
   while True:
     print("\n** %s State check:" % time.strftime('%c'))
-    process_state_changes()
+
+    state_change = observe_state_changes()
+    if state_change[0] != state_change[1]:
+      print("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
+
     time.sleep(5)
 
 if __name__ == "__main__":
