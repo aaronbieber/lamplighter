@@ -10,18 +10,24 @@ import datetime
 from pprint import pprint
 from pprint import pformat
 
-HB = '/var/www/glow/htdocs/data/heartbeat.db'
-LL = '/home/airborne/bin/lamplighter/lamplighter.db'
+HB = "/var/www/glow/htdocs/data/heartbeat.db"
+LL = "/home/airborne/bin/lamplighter/lamplighter.db"
 
 # Default callbacks, which do nothing.
-on_home = lambda quiet, who = '': None
-on_away = lambda quiet, who = '': None
+on_home = lambda quiet, who = []: None
+on_away = lambda quiet, who = []: None
 
 # Definition of log levels.
 LOG_NONE  = 0
 LOG_BRIEF = 1
 LOG_INFO  = 2
 LOG_DEBUG = 3
+
+def get_all_aliases():
+    return [ u["alias"] for u in config.config["users"] ]
+
+def get_all_aliases_for_where():
+    return ', '.join([ "'%s'" % x for x in get_all_aliases() ])
 
 def log_name_by_value(log_value):
     vars = globals().copy()
@@ -77,11 +83,11 @@ def get_all_states():
                         state,
                         updated
                  FROM   state
-                 WHERE  who IN ('aaron', 'veronica')""")
+                 WHERE  who IN (%s)""" % get_all_aliases_for_where())
 
-    return [{ 'who': r[0],
-              'state': r[1],
-              'updated': r[2] }
+    return [{ "who": r[0],
+              "state": r[1],
+              "updated": r[2] }
             for r in rows ]
 
 def set_state(who, state):
@@ -101,7 +107,7 @@ def get_last_heartbeats():
                        SELECT who,
                               (strftime('%s') - ts) AS ts
                        FROM   heartbeats
-                       WHERE  who IN ('aaron', 'veronica')""")
+                       WHERE  who IN (%s)""" % ('%s', get_all_aliases_for_where()))
 
     return heartbeats
 
@@ -141,33 +147,33 @@ def observe_state_changes():
     who_changed = []
 
     for row in known_state:
-        if row['state'] == 'away' and row['who'] in people_at_home:
+        if row["state"] == "away" and row["who"] in people_at_home:
             # Has returned home!
-            set_state(row['who'], 'home')
-            log("%s has returned home!" % row['who'])
-            who_changed.append(row['who'])
+            set_state(row["who"], "home")
+            log("%s has returned home!" % row["who"])
+            who_changed.append(row["who"])
 
-        elif row['state'] == 'home' and row['who'] not in people_at_home:
+        elif row["state"] == "home" and row["who"] not in people_at_home:
             # Has gone away!
-            set_state(row['who'], 'away')
-            log("%s appears to have left!" % row['who'])
-            likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime('%c')
+            set_state(row["who"], "away")
+            log("%s appears to have left!" % row["who"])
+            likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime("%c")
             log("Likely departure time: %s" % likely_departure)
-            who_changed.append(row['who'])
+            who_changed.append(row["who"])
 
         else:
-            since = datetime.datetime.fromtimestamp(row['updated'])
-            log("No change for %s since %s (%s)." % (row['who'], since, row['state']), LOG_INFO)
+            since = datetime.datetime.fromtimestamp(row["updated"])
+            log("No change for %s since %s (%s)." % (row["who"], since, row["state"]), LOG_INFO)
 
     return (initial_state, get_combined_state(), who_changed)
 
 def get_combined_state():
     states = get_all_states()
 
-    if all(r['state'] == 'away' for r in states):
-        return 'away'
+    if all(r["state"] == "away" for r in states):
+        return "away"
     else:
-        return 'home'
+        return "home"
 
 def within_quiet_hours():
     now = datetime.datetime.now()
@@ -175,8 +181,8 @@ def within_quiet_hours():
     # The config module does not know nor care what the values within
     # the config file are, nor their types. We'll get strings for
     # everything, so coerce them into ints so we can compare them.
-    start = int(config.config['quiet_hours_start'])
-    end = int(config.config['quiet_hours_end'])
+    start = int(config.config["quiet_hours_start"])
+    end = int(config.config["quiet_hours_end"])
 
     if start is 0 and end is 0:
         return False
@@ -204,10 +210,10 @@ def run():
         if state_change[0] != state_change[1]:
             log("Observed state change from %s to %s!" % (state_change[0], state_change[1]))
 
-        if state_change[1] == 'away':
+        if state_change[1] == "away":
             on_away(within_quiet_hours(), state_change[2])
 
-        elif state_change[1] == 'home':
+        elif state_change[1] == "home":
             on_home(within_quiet_hours(), state_change[2])
 
         else:

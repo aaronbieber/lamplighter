@@ -7,18 +7,23 @@ This module is a part of Lamplighter. See lamplighter.py for more."""
 import os
 from configparser import SafeConfigParser
 
-config = {}
+config = { 'users': [] }
 
 def load():
-    if os.path.isfile('config.ini'):
+    if os.path.isfile('new_config.ini'):
         parser = SafeConfigParser()
-        parser.read('config.ini')
+        parser.read('new_config.ini')
 
-        # Load the main configuration options.
-        for key in parser.options('lamplighter'):
-            config[key] = parser.get('lamplighter', key)
-            
-        # Populate the device search list.
-        config['devices'] = {}
-        for name in parser.options('devices'):
-            config['devices'][name] = parser.get('devices', name)
+        for section in parser.sections():
+            if section == 'lamplighter':
+                # Load the main configuration options.
+                for key in parser.options(section):
+                    config[key] = parser.get(section, key)
+            else:
+                # User options
+                config['users'].append({
+                    'alias': section,
+                    'name': parser.get(section, 'name'),
+                    'user_agent_match': parser.get(section, 'user_agent_match'),
+                    'notification_number': parser.get(section, 'notification_number')
+                })
