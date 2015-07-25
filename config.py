@@ -10,7 +10,7 @@ from configparser import SafeConfigParser
 config = { 'users': [] }
 
 def load():
-    if os.path.isfile('new_config.ini'):
+    if os.path.isfile('config.ini'):
         parser = SafeConfigParser()
         parser.read('new_config.ini')
 
