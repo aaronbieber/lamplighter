@@ -12,7 +12,7 @@ config = { 'users': [] }
 def load():
     if os.path.isfile('config.ini'):
         parser = SafeConfigParser()
-        parser.read('new_config.ini')
+        parser.read('config.ini')
 
         for section in parser.sections():
             if section == 'lamplighter':
