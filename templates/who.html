@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Lamplighter</title>
+  </head>
+  <body>
+    <h1>Who's Home?</h1>
+
+    <ul>
+      {% for person in people %}
+        <li>{{ person.name }}: {{ person.state }} (since {{ person.since }})</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
