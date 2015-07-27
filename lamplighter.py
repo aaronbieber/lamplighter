@@ -120,7 +120,7 @@ def observe_state_changes():
             logger.log("%s appears to have left!" % row["who"])
             likely_departure = datetime.datetime.fromtimestamp(time.time() - 2700).strftime("%c")
             logger.log("Likely departure time: %s" % likely_departure)
-            changes[row["who"]] = ('away', 'home')
+            changes[row["who"]] = ('home', 'away')
 
         else:
             since = datetime.datetime.fromtimestamp(row["updated"])
