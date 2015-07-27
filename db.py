@@ -4,11 +4,8 @@ import sqlite3
 import logger
 from pprint import pformat
 
-HB = "heartbeat.db"
-LL = "lamplighter.db"
-
-def query(db, sql, params = {}, attempt = 1):
-    conn = sqlite3.connect(db)
+def query(sql, params = {}, attempt = 1):
+    conn = sqlite3.connect("lamplighter.db")
     c = conn.cursor()
     try:
         logger.log("Executing: %s" % sql, logger.LOG_DEBUG)

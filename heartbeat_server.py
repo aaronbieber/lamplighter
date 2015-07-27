@@ -22,11 +22,10 @@ def get_alias_by_ua(ua):
     return False
 
 def get_heartbeat_by_alias(alias):
-    row = db.query(db.HB,
-                   """
-                    SELECT ts
-                    FROM   heartbeats
-                    WHERE  who = :who""",
+    row = db.query("""
+                   SELECT ts
+                   FROM   heartbeats
+                   WHERE  who = :who""",
                    {"who": alias})
     if len(row):
         return int(row[0][0])
@@ -35,8 +34,7 @@ def get_heartbeat_by_alias(alias):
 
 def create_heartbeat(alias):
     ts = int(time.time())
-    res = db.query(db.HB,
-                   """
+    res = db.query("""
                    INSERT INTO heartbeats (who, ts)
                    VALUES (:who, :ts)""",
                    {"who": alias, "ts": ts})
@@ -47,8 +45,7 @@ def create_heartbeat(alias):
 
 def update_heartbeat(alias):
     ts = int(time.time())
-    res = db.query(db.HB,
-                   """
+    res = db.query("""
                    UPDATE heartbeats
                    SET ts = :ts
                    WHERE  who = :who""",
@@ -98,7 +95,7 @@ def who():
     people = [ { "name": names_by_alias[s["who"]],
                  "state": s["state"],
                  "since": t(s["updated"]) } for s in all_states ]
-
+    
     return render_template('who.html', people = people)
 
 if __name__ == "__main__":

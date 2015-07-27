@@ -9,8 +9,6 @@ import time
 import datetime
 import logger
 from db import query
-from db import HB
-from db import LL
 from pprint import pprint
 from pprint import pformat
 
@@ -27,18 +25,17 @@ def get_all_aliases_for_where():
     return ', '.join([ "'%s'" % x for x in get_all_aliases() ])
 
 def init_database():
-    query(LL, "CREATE TABLE state (who varchar(32), state varchar(32), updated bigint)")
+    query("CREATE TABLE state (who varchar(32), state varchar(32), updated bigint)")
 
 def get_state(who):
-    state = query(LL, "SELECT state, updated FROM state WHERE who = :who", {"who": who})
+    state = query("SELECT state, updated FROM state WHERE who = :who", {"who": who})
     if state != False and len(state):
         return state[0]
 
     return False
 
 def get_all_states():
-    rows = query(LL,
-                 """
+    rows = query("""
                  SELECT who,
                         state,
                         updated
@@ -54,16 +51,15 @@ def set_state(who, state):
     exists = get_state(who)
     if exists == False:
         logger.log("State not found, adding.", logger.LOG_DEBUG)
-        return query(LL, "INSERT INTO state (who, state, updated) VALUES (:who, :state, :updated)",
+        return query("INSERT INTO state (who, state, updated) VALUES (:who, :state, :updated)",
                      { "who": who, "state": state, "updated": int(time.time()) })
     else:
         logger.log("State found, updating.", logger.LOG_DEBUG)
-        return query(LL, "UPDATE state SET state = :state, updated = :updated WHERE who = :who",
+        return query("UPDATE state SET state = :state, updated = :updated WHERE who = :who",
                      { "who": who, "state": state, "updated": int(time.time()) })
 
 def get_last_heartbeats():
-    heartbeats = query(HB,
-                       """
+    heartbeats = query("""
                        SELECT who,
                               (strftime('%s') - ts) AS ts
                        FROM   heartbeats
