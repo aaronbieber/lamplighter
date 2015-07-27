@@ -47,3 +47,10 @@ It's easy to get Lamplighter running. Simply:
      want them to, following the pattern in the example.
   5. Run your dispatcher script, preferably using a daemon management system
      like Supervisor or Upstart.
+
+## TODO ##
+
+1. Rewrite this whole README.
+2. Merge the two databases (merge heartbeat into lamplighter).
+3. JSONify/templatize the "who" function, if it is simply done.
+4. Interact via text?
